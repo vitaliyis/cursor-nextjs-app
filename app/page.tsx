@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 export default function Home() {
   return (
     <div>
-      <div className="text-red-500 text-2xl">
+      <div className="text-red-500 text-2xl flex">
         <Input type="text" placeholder="Enter text" value="Hello World" />
         <Button>Click me</Button>
       </div>
