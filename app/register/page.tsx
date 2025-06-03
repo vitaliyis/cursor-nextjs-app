@@ -3,21 +3,52 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    
     // Проверка на совпадение паролей
     if (password !== confirmPassword) {
-      alert("Пароли не совпадают");
+      setError("Пароли не совпадают");
       return;
     }
-    // Здесь будет логика регистрации
-    console.log("Registration attempt", { email, password });
+
+    setIsLoading(true);
+
+    try {
+      // В реальном приложении здесь будет API запрос на регистрацию
+      // Например, fetch('/api/register', { method: 'POST', body: JSON.stringify({ email, password }) })
+      
+      // Для демонстрации просто делаем вход после "регистрации"
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Ошибка при регистрации");
+        setIsLoading(false);
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch (error) {
+      setError("Произошла ошибка при регистрации");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -29,6 +60,12 @@ export default function RegisterPage() {
             Создайте новый аккаунт
           </p>
         </div>
+
+        {error && (
+          <div className="rounded-md bg-red-50 p-3">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           <div className="space-y-4">
@@ -83,8 +120,12 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <Button type="submit" className="w-full">
-              Зарегистрироваться
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? "Регистрация..." : "Зарегистрироваться"}
             </Button>
           </div>
 
