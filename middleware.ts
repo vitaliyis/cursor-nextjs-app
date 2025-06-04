@@ -1,10 +1,15 @@
-import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export default auth((req) => {
-  const { nextUrl, auth } = req;
-  const isLoggedIn = !!auth?.user;
+export async function middleware(request: NextRequest) {
+  const token = await getToken({ 
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET || "your-super-secret-key-that-should-be-in-env"
+  });
+  const { nextUrl } = request;
+  
+  const isLoggedIn = !!token;
   
   // Защищенные маршруты (требуют аутентификации)
   const isProtectedRoute = nextUrl.pathname.startsWith("/dashboard");
@@ -25,7 +30,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 // Конфигурация матчера - указываем, какие маршруты должны проходить через middleware
 export const config = {

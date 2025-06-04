@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { authenticateUser } from "./lib/auth";
 
 export const authConfig = {
   providers: [
@@ -10,20 +11,16 @@ export const authConfig = {
         password: { label: "Пароль", type: "password" }
       },
       async authorize(credentials) {
-        // В реальном приложении здесь будет проверка учетных данных из БД
-        // Сейчас просто принимаем любые учетные данные для демонстрации
+        // Проверяем, что email и пароль были предоставлены
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
 
-        // Для демонстрации - тестовый пользователь
-        const user = {
-          id: "1",
-          name: "Тестовый Пользователь",
-          email: credentials.email,
-        };
-
-        return user;
+        // Используем функцию authenticateUser для проверки учетных данных
+        return authenticateUser(
+          credentials.email as string, 
+          credentials.password as string
+        );
       }
     })
   ],
