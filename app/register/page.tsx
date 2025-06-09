@@ -7,6 +7,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -27,10 +28,24 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // В реальном приложении здесь будет API запрос на регистрацию
-      // Например, fetch('/api/register', { method: 'POST', body: JSON.stringify({ email, password }) })
-      
-      // Для демонстрации просто делаем вход после "регистрации"
+      // Отправляем запрос на регистрацию
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Ошибка при регистрации");
+        setIsLoading(false);
+        return;
+      }
+
+      // Если регистрация успешна, выполняем вход
       const result = await signIn("credentials", {
         email,
         password,
@@ -38,7 +53,7 @@ export default function RegisterPage() {
       });
 
       if (result?.error) {
-        setError("Ошибка при регистрации");
+        setError("Регистрация выполнена, но произошла ошибка при входе");
         setIsLoading(false);
         return;
       }
@@ -69,6 +84,21 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           <div className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium">
+                Имя (необязательно)
+              </label>
+              <Input
+                id="name"
+                name="name"
+                type="text"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ваше имя"
+                className="mt-1"
+              />
+            </div>
             <div>
               <label htmlFor="email" className="block text-sm font-medium">
                 Email
