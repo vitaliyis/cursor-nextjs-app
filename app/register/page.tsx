@@ -1,19 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { GoogleReCaptchaProvider, useGoogleReCaptcha } from "react-google-recaptcha-v3";
 
-export default function RegisterPage() {
+// Компонент формы регистрации
+function RegisterForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const router = useRouter();
+
+  // Получаем токен капчи при загрузке компонента
+  useEffect(() => {
+    const handleReCaptchaVerify = async () => {
+      if (!executeRecaptcha) {
+        return;
+      }
+      
+      try {
+        const token = await executeRecaptcha('register');
+        setCaptchaToken(token);
+      } catch (error) {
+        console.error("Ошибка reCAPTCHA:", error);
+        setError("Не удалось загрузить капчу. Пожалуйста, перезагрузите страницу.");
+      }
+    };
+
+    handleReCaptchaVerify();
+  }, [executeRecaptcha]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,11 +47,39 @@ export default function RegisterPage() {
       setError("Пароли не совпадают");
       return;
     }
+    
+    // Проверка капчи
+    if (!captchaToken) {
+      setError("Ожидание проверки reCAPTCHA. Пожалуйста, подождите...");
+      return;
+    }
 
     setIsLoading(true);
 
     try {
-      // Отправляем запрос на регистрацию
+      // Сначала проверяем капчу на сервере
+      const captchaResponse = await fetch("/api/verify-captcha", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: captchaToken }),
+      });
+      
+      const captchaData = await captchaResponse.json();
+      
+      if (!captchaData.success) {
+        setError(captchaData.message || "Ошибка проверки безопасности");
+        setIsLoading(false);
+        // Пытаемся получить новый токен
+        if (executeRecaptcha) {
+          const newToken = await executeRecaptcha('register_retry');
+          setCaptchaToken(newToken);
+        }
+        return;
+      }
+
+      // Если капча прошла проверку, выполняем регистрацию
       const response = await fetch('/api/register', {
         method: 'POST',
         headers: {
@@ -42,6 +93,11 @@ export default function RegisterPage() {
       if (!response.ok) {
         setError(data.error || "Ошибка при регистрации");
         setIsLoading(false);
+        // Пытаемся получить новый токен
+        if (executeRecaptcha) {
+          const newToken = await executeRecaptcha('register_error');
+          setCaptchaToken(newToken);
+        }
         return;
       }
 
@@ -63,6 +119,11 @@ export default function RegisterPage() {
     } catch (error) {
       setError("Произошла ошибка при регистрации");
       setIsLoading(false);
+      // Пытаемся получить новый токен
+      if (executeRecaptcha) {
+        const newToken = await executeRecaptcha('register_error');
+        setCaptchaToken(newToken);
+      }
     }
   };
 
@@ -153,7 +214,7 @@ export default function RegisterPage() {
             <Button 
               type="submit" 
               className="w-full"
-              disabled={isLoading}
+              disabled={isLoading || !captchaToken}
             >
               {isLoading ? "Регистрация..." : "Зарегистрироваться"}
             </Button>
@@ -167,5 +228,21 @@ export default function RegisterPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+// Обертка с провайдером reCAPTCHA
+export default function RegisterPage() {
+  return (
+    <GoogleReCaptchaProvider
+      reCaptchaKey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
+      scriptProps={{
+        async: true,
+        defer: true,
+        appendTo: 'head',
+      }}
+    >
+      <RegisterForm />
+    </GoogleReCaptchaProvider>
   );
 } 
