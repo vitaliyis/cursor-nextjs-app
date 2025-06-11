@@ -1,24 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { GoogleReCaptchaProvider, useGoogleReCaptcha } from "react-google-recaptcha-v3";
 
-export default function LoginPage() {
+// Компонент формы логина
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const router = useRouter();
+
+  // Получаем токен капчи при загрузке компонента
+  useEffect(() => {
+    const handleReCaptchaVerify = async () => {
+      if (!executeRecaptcha) {
+        return;
+      }
+      
+      try {
+        const token = await executeRecaptcha('login');
+        setCaptchaToken(token);
+      } catch (error) {
+        console.error("Ошибка reCAPTCHA:", error);
+        setError("Не удалось загрузить капчу. Пожалуйста, перезагрузите страницу.");
+      }
+    };
+
+    handleReCaptchaVerify();
+  }, [executeRecaptcha]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    
+    if (!captchaToken) {
+      setError("Ожидание проверки reCAPTCHA. Пожалуйста, подождите...");
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
+      // Сначала проверяем капчу на сервере
+      const captchaResponse = await fetch("/api/verify-captcha", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: captchaToken }),
+      });
+      
+      const captchaData = await captchaResponse.json();
+      
+      if (!captchaData.success) {
+        setError(captchaData.message || "Ошибка проверки капчи");
+        setIsLoading(false);
+        // Пытаемся получить новый токен
+        if (executeRecaptcha) {
+          const newToken = await executeRecaptcha('login_retry');
+          setCaptchaToken(newToken);
+        }
+        return;
+      }
+
+      // Если капча прошла проверку, выполняем вход
       const result = await signIn("credentials", {
         email,
         password,
@@ -28,6 +80,11 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Неверный email или пароль");
         setIsLoading(false);
+        // Пытаемся получить новый токен
+        if (executeRecaptcha) {
+          const newToken = await executeRecaptcha('login_error');
+          setCaptchaToken(newToken);
+        }
         return;
       }
 
@@ -36,16 +93,53 @@ export default function LoginPage() {
     } catch (error) {
       setError("Произошла ошибка при входе");
       setIsLoading(false);
+      // Пытаемся получить новый токен
+      if (executeRecaptcha) {
+        const newToken = await executeRecaptcha('login_error');
+        setCaptchaToken(newToken);
+      }
     }
   };
 
   const handleGoogleSignIn = async () => {
+    if (!captchaToken) {
+      setError("Ожидание проверки reCAPTCHA. Пожалуйста, подождите...");
+      return;
+    }
+    
     setIsLoading(true);
     try {
+      // Проверяем капчу перед входом через Google
+      const captchaResponse = await fetch("/api/verify-captcha", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: captchaToken }),
+      });
+      
+      const captchaData = await captchaResponse.json();
+      
+      if (!captchaData.success) {
+        setError(captchaData.message || "Ошибка проверки капчи");
+        setIsLoading(false);
+        // Пытаемся получить новый токен
+        if (executeRecaptcha) {
+          const newToken = await executeRecaptcha('google_login_retry');
+          setCaptchaToken(newToken);
+        }
+        return;
+      }
+
       await signIn("google", { callbackUrl: "/dashboard" });
     } catch (error) {
       setError("Произошла ошибка при входе через Google");
       setIsLoading(false);
+      // Пытаемся получить новый токен
+      if (executeRecaptcha) {
+        const newToken = await executeRecaptcha('google_login_error');
+        setCaptchaToken(newToken);
+      }
     }
   };
 
@@ -105,7 +199,7 @@ export default function LoginPage() {
             <Button 
               type="submit" 
               className="w-full"
-              disabled={isLoading}
+              disabled={isLoading || !captchaToken}
             >
               {isLoading ? "Вход..." : "Войти"}
             </Button>
@@ -125,7 +219,7 @@ export default function LoginPage() {
               type="button" 
               className="w-full flex items-center justify-center gap-2 bg-white text-black border border-gray-300 hover:bg-gray-50"
               onClick={handleGoogleSignIn}
-              disabled={isLoading}
+              disabled={isLoading || !captchaToken}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" className="h-5 w-5">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -145,5 +239,21 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+// Обертка с провайдером reCAPTCHA
+export default function LoginPage() {
+  return (
+    <GoogleReCaptchaProvider
+      reCaptchaKey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
+      scriptProps={{
+        async: true,
+        defer: true,
+        appendTo: 'head',
+      }}
+    >
+      <LoginForm />
+    </GoogleReCaptchaProvider>
   );
 } 
