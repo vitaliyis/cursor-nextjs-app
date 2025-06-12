@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     });
 
     // Возвращаем успешный ответ без пароля
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = user;
     
     return NextResponse.json(

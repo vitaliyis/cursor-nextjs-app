@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { GoogleReCaptchaProvider, useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 
 // Компонент формы регистрации
 function RegisterForm() {
@@ -119,6 +119,7 @@ function RegisterForm() {
     } catch (error) {
       setError("Произошла ошибка при регистрации");
       setIsLoading(false);
+      console.error(error);
       // Пытаемся получить новый токен
       if (executeRecaptcha) {
         const newToken = await executeRecaptcha('register_error');
@@ -231,18 +232,4 @@ function RegisterForm() {
   );
 }
 
-// Обертка с провайдером reCAPTCHA
-export default function RegisterPage() {
-  return (
-    <GoogleReCaptchaProvider
-      reCaptchaKey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
-      scriptProps={{
-        async: true,
-        defer: true,
-        appendTo: 'head',
-      }}
-    >
-      <RegisterForm />
-    </GoogleReCaptchaProvider>
-  );
-} 
+export default RegisterForm;

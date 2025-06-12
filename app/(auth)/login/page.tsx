@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { GoogleReCaptchaProvider, useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 
 // Компонент формы логина
 function LoginForm() {
@@ -93,6 +93,7 @@ function LoginForm() {
     } catch (error) {
       setError("Произошла ошибка при входе");
       setIsLoading(false);
+      console.error(error);
       // Пытаемся получить новый токен
       if (executeRecaptcha) {
         const newToken = await executeRecaptcha('login_error');
@@ -135,6 +136,7 @@ function LoginForm() {
     } catch (error) {
       setError("Произошла ошибка при входе через Google");
       setIsLoading(false);
+      console.error(error);
       // Пытаемся получить новый токен
       if (executeRecaptcha) {
         const newToken = await executeRecaptcha('google_login_error');
@@ -242,18 +244,4 @@ function LoginForm() {
   );
 }
 
-// Обертка с провайдером reCAPTCHA
-export default function LoginPage() {
-  return (
-    <GoogleReCaptchaProvider
-      reCaptchaKey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
-      scriptProps={{
-        async: true,
-        defer: true,
-        appendTo: 'head',
-      }}
-    >
-      <LoginForm />
-    </GoogleReCaptchaProvider>
-  );
-} 
+export default LoginForm;
