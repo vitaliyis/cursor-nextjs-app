@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { isProtectedRoute, isAuthRoute } from "@/config/routes";
 
 export async function middleware(request: NextRequest) {
   const token = await getToken({ 
@@ -11,21 +12,13 @@ export async function middleware(request: NextRequest) {
   
   const isLoggedIn = !!token;
   
-  // Защищенные маршруты (требуют аутентификации)
-  const isProtectedRoute = nextUrl.pathname.startsWith("/dashboard");
-  
-  // Маршруты аутентификации
-  const isAuthRoute = 
-    nextUrl.pathname.startsWith("/login") || 
-    nextUrl.pathname.startsWith("/register");
-
   // Если пользователь не авторизован и пытается перейти к защищенному маршруту
-  if (!isLoggedIn && isProtectedRoute) {
+  if (!isLoggedIn && isProtectedRoute(nextUrl.pathname)) {
     return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
   // Если пользователь авторизован и пытается перейти к маршруту аутентификации
-  if (isLoggedIn && isAuthRoute) {
+  if (isLoggedIn && isAuthRoute(nextUrl.pathname)) {
     return NextResponse.redirect(new URL("/dashboard", nextUrl));
   }
 
