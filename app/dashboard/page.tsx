@@ -1,8 +1,10 @@
-import { auth, signOut } from "@/auth";
+'use client';
+
+import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 
-export default async function DashboardPage() {
-  const session = await auth();
+export default function DashboardPage() {
+  const { data: session } = useSession();
   const user = session?.user;
 
   return (
@@ -18,16 +20,12 @@ export default async function DashboardPage() {
             <p><strong>Имя:</strong> {user?.name || "Не указано"}</p>
           </div>
 
-          <form
-            action={async () => {
-              "use server";
-              await signOut();
-            }}
+          <button
+            onClick={() => signOut()}
+            className="px-3 py-2 rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700"
           >
-            <Button type="submit" variant="destructive">
-              Выйти из аккаунта
-            </Button>
-          </form>
+            Выйти из аккаунта
+          </button>
         </div>
       </div>
     </div>
