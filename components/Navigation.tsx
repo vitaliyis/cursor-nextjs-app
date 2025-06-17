@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { routes } from '@/config/routes';
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const Navigation = () => {
   const pathname = usePathname();
@@ -36,7 +37,13 @@ const Navigation = () => {
               ))}
             </div>
           </div>
-          <div className="flex items-center space-x-4 ">
+          <div className="flex items-center space-x-4">
+            {session?.user?.image && (
+              <Avatar className="bg-transparent text-black">
+                <AvatarImage src={session.user.image} alt={session.user.name || 'User'} />
+                <AvatarFallback>{session.user.name?.[0] || session.user.email?.[0]}</AvatarFallback>
+              </Avatar>
+            )}
             <div className="text-gray-300">
               {session?.user?.email}
             </div>
